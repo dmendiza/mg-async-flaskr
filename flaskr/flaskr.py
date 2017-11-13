@@ -6,25 +6,16 @@ from flask import Flask, flash, g, render_template, request, redirect, url_for
 from passlib.hash import pbkdf2_sha256
 
 
+_DELIVERY_MODE_PERSISTENT=2
+
 app = Flask(__name__)
 app.config.from_object(__name__)
 app.config.update(
     DATABASE=os.path.join(app.root_path, 'flaskr.db'),
-    DOMAIN='example.com',
     SECRET_KEY='DEVELOPMENT_SECRET_KEY',
-    MAILGUN_API_KEY='YOUR_MAILGUN_API_KEY',
     RABBITMQ_HOST='localhost'
 )
 app.config.from_envvar('FLASKR_SETTINGS', silent=True)
-
-
-class Error(Exception):
-    pass
-
-
-class MailGunError(Error):
-    def __init__(self, message):
-        self.message = message
 
 
 def connect_db():
@@ -58,6 +49,30 @@ def initdb_command():
     print('Initialized the database.')
 
 
+def connect_queue():
+    if not hasattr(g, 'rabbitmq'):
+        g.rabbitmq = pika.BlockingConnection(
+            pika.ConnectionParameters(app.config['RABBITMQ_HOST'])
+        )
+    return g.rabbitmq
+
+
+def get_welcome_queue():
+    if not hasattr(g, 'welcome_queue'):
+        conn = connect_queue()
+        channel = conn.channel()
+        channel.queue_declare(queue='welcome_queue', durable=True)
+        channel.queue_bind(exchange='amq.direct', queue='welcome_queue')
+        g.welcome_queue = channel
+    return g.welcome_queue
+
+
+@app.teardown_appcontext
+def close_queue(error):
+    if hasattr(g, 'rabbitmq'):
+        g.rabbitmq.close()
+
+
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     error = None
@@ -73,8 +88,16 @@ def signup():
             return signup_error('Email Addres already has an account.')
         c.execute('INSERT INTO users (email, password) VALUES (?, ?);',
                   (email, pbkdf2_sha256.hash(password)))
-        c.close()
-        send_welcome_email(email)
+        db.commit()
+        q = get_welcome_queue()
+        q.basic_publish(
+            exchange='amq.direct',
+            routing_key='welcome_queue',
+            body=email,
+            properties=pika.BasicProperties(
+                delivery_mode=_DELIVERY_MODE_PERSISTENT
+            )
+        )
         flash('Account Created')
         return redirect(url_for('login'))
     else:
