@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block body %}
 {% if error %}
-<div class="error"><p>Error: {{ error }}</p></div>
+<p class="error"><strong>Error:</strong> {{ error }}</p>
 {% endif %}
 <form action="{{ url_for('signup') }}" method="POST">
     <label for="email">Email Address:</label>
     <input type="text" name="email" />
-    <label for="Password">Password:</label>
+    <label for="password">Password:</label>
     <input type="password" name="password" />
     <input type="submit" value="Create Account" />
 </form>

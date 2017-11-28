@@ -1,7 +1,14 @@
 {% extends "base.html" %}
 {% block body %}
-<form>
+<h2>Login</h2>
+{% if error %}
+<p class="error"><strong>Error:</strong> {{ error }}</p>
+{% endif %}
+<form action="{{ url_for('login') }}" method="POST">
+    <label for="email">Email Address:</label>
     <input type="text" name="email" />
+    <label for="password">Password:</label>
     <input type="password" name="password" />
+    <input type="submit" value="Login" />
 </form>
 {% endblock %}

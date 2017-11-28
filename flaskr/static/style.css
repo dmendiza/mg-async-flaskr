@@ -1,0 +1,16 @@
+body { font-family: sans-serif; background: #EEE; }
+a, h1, h2 { color: #377BA8; }
+
+.error { background: #f0d6d6; padding: 0.5em; }
+.flash {
+    background: #CEE5F5;
+    padding: 0.5em;
+    border: 1px solid #AACBE2;
+}
+.page {
+    margin: 2em auto;
+    width: 35em;
+    border: 5px solid #CCC;
+    padding: 0.8em;
+    background: white;
+}

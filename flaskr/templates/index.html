@@ -1,4 +1,12 @@
 {% extends "base.html" %}
 {% block body %}
-    <h1>Home</h1>
+{% if session.logged_in %}
+{% endif %}
+<ul class="entries">
+{% for entry in entries %}
+    <li><h2>{{ entry.title }}</h2>{{ entry.text|safe }}</li>
+{% else %}
+    <li><em>Unvelievable.  No entries here so far.</em></li>
+{% endfor %}
+</ul>
 {% endblock %}
