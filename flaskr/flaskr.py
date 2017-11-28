@@ -6,8 +6,6 @@ from flask import Flask, flash, g, render_template, request, redirect, url_for
 from passlib.hash import pbkdf2_sha256
 
 
-_DELIVERY_MODE_PERSISTENT=2
-
 app = Flask(__name__)
 app.config.from_object(__name__)
 app.config.update(

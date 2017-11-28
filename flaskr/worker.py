@@ -2,10 +2,13 @@ import pika
 import requests
 
 
+_DELIVERY_MODE_PERSISTENT=2
+
 # Configuration
 DOMAIN = 'example.com'
 MAILGUN_API_KEY = 'YOUR_MAILGUN_API_KEY'
 RABBITMQ_HOST = 'localhost'
+RETRY_DELAY_MS = 30000
 
 connection = pika.BlockingConnection(
     pika.ConnectionParameters(host=RABBITMQ_HOST)
@@ -13,14 +16,16 @@ connection = pika.BlockingConnection(
 channel = connection.channel()
 channel.queue_declare(queue='welcome_queue', durable=True)
 
-
-class Error(Exception):
-    pass
-
-
-class MailgunError(Error):
-    def __init__(self, message):
-        self.message = message
+retry_channel = connection.channel()
+retry_channel.queue_declare(
+    queue='retry_queue',
+    durable=True,
+    arguments={
+        'x-message-ttl': RETRY_DELAY_MS,
+        'x-dead-letter-exchange': 'amq.direct',
+        'x-dead-letter-routing-key': 'welcome_queue'
+    }
+)
 
 
 def send_welcome_message(ch, method, properties, body):
@@ -36,8 +41,17 @@ def send_welcome_message(ch, method, properties, body):
     )
     ch.basic_ack(delivery_tag=method.delivery_tag)
     if res.status_code != 200:
-        # Something terrible happened :-O
-        raise MailgunError("{}-{}".format(res.status_code, res.reason))
+        print("Error sending to {}. {} {}. Retrying...".format(
+            address, res.status_code, res.reason
+        ))
+        retry_channel.basic_publish(
+            exchange='',
+            routing_key='retry_queue',
+            body=address,
+            properties=pika.BasicProperties(
+                delivery_mode=_DELIVERY_MODE_PERSISTENT
+            )
+        )
 
 
 channel.basic_consume(send_welcome_message, queue='welcome_queue')
